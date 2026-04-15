@@ -1,0 +1,8 @@
+claim_id,patient_mrn,service_date_start,service_date_end,diagnosis_code,diagnosis_description,procedure_code,procedure_description,facility_name,provider_npi,provider_name,billed_amount,allowed_amount,paid_amount,claim_status,filed_date
+CLM-0001,MRN10001,2025-03-05,2025-03-10,J18.9,Pneumonia unspecified organism,99223,Initial hospital care - high severity,MERCY_GENERAL,1234567890,Dr. Sarah Mitchell,18500.00,14200.00,11360.00,paid,2025-03-15
+CLM-0002,MRN20002,2025-03-08,2025-03-15,I25.10,Atherosclerotic heart disease,93458,Left heart catheterization,ST_LUKES,4567890123,Dr. Robert Kim,42000.00,35000.00,28000.00,paid,2025-03-25
+CLM-0003,MRN30003,2025-03-06,2025-03-14,M17.11,Primary osteoarthritis right knee,27447,Total knee replacement,RIVERSIDE,5678901234,Dr. Lisa Chen,65000.00,48000.00,38400.00,pending,2025-03-20
+CLM-0004,MRN40004,2025-03-04,2025-03-11,K35.80,Unspecified acute appendicitis,44950,Appendectomy,COMMUNITY_HOSP,7890123456,Dr. Kevin O'Brien,28000.00,22000.00,17600.00,paid,2025-03-18
+CLM-0005,MRN50005,2025-03-20,2025-03-22,O80,Encounter for full-term uncomplicated delivery,59400,Routine obstetric care,MERCY_GENERAL,9012345678,Dr. Helen Park,15000.00,12000.00,9600.00,paid,2025-03-28
+CLM-0006,MRN60001,2025-03-12,2025-03-18,J44.1,COPD with acute exacerbation,94060,Bronchospasm evaluation,VALLEY_MED,1122334455,Dr. Thomas Reed,22000.00,17500.00,14000.00,denied,2025-03-25
+CLM-0007,MRN70003,2025-03-19,2025-03-23,G43.909,Migraine unspecified,95816,EEG with sleep,RIVERSIDE,5678901234,Dr. Lisa Chen,8500.00,6800.00,5440.00,paid,2025-03-30
