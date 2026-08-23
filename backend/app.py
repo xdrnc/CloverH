@@ -1,10 +1,15 @@
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException, status
+#alextest fastapi add: HTTPException, status
+
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import distinct
 from sqlalchemy.orm import Session
 
 from database import Base, engine, get_db
 from models import ADTEvent, Patient
+
+#alextest
+from sqlalchemy.exc import IntegrityError
 
 Base.metadata.create_all(bind=engine)
 
@@ -68,3 +73,27 @@ def get_patient_events(mrn: str, db: Session = Depends(get_db)):
         }
         for e in events
     ]
+
+
+#alextest post new patient
+@app.post("/api/patients", status_code=status.HTTP_201_CREATED)
+def create_patient(mrn: str, first_name: str, last_name: str, 
+                   date_of_birth: str = None, gender: str = None, 
+                   db: Session = Depends(get_db)):
+    patient = Patient(
+        mrn=mrn,
+        first_name= first_name,
+        last_name= last_name,
+        date_of_birth=date_of_birth,
+        gender=gender,
+    )
+    db.add(patient)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=f"MRN '{mrn}' already exists")
+    db.refresh(patient)
+    return {"id": patient.id, "mrn": patient.mrn, "first_name": patient.first_name, 
+            "last_name": patient.last_name, "date_of_birth": patient.date_of_birth, 
+            "gender": patient.gender, "created_at": patient.created_at}
