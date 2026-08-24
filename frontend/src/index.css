@@ -212,3 +212,35 @@ h1 {
   color: white;
   border-color: #16213e;
 }
+
+/* WebSocket Status Styles */
+.ws-status {
+  margin-left: 12px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.ws-status.connected {
+  background: #d4edda;
+  color: #155724;
+}
+
+.ws-status.disconnected {
+  background: #f8d7da;
+  color: #721c24;
+  animation: pulse 1.5s infinite;
+}
+
+.ws-error {
+  margin-left: 8px;
+  color: #dc3545;
+  font-size: 0.75rem;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

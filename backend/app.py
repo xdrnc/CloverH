@@ -13,6 +13,9 @@ from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 
 from cache import cache, events_cache_key, invalidate_events_cache
+from routes.websocket import router as websocket_router
+from websocket_manager import manager
+import asyncio
 
 Base.metadata.create_all(bind=engine)
 
@@ -24,6 +27,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include WebSocket router
+app.include_router(websocket_router)
+
+# Hook cache invalidation to WebSocket broadcast
+def on_events_cache_invalidated(prefix: str):
+    if prefix == "events:" or prefix == "*":
+        asyncio.create_task(manager.broadcast_all({"type": "cache_invalidated"}))
+
+cache.on_invalidate(on_events_cache_invalidated)
 
 
 @app.get("/api/patients")
@@ -189,6 +202,23 @@ def create_event(
         raise HTTPException(status_code=409, detail="Duplicate or constraint error")
     db.refresh(event)
     invalidate_events_cache()  # Invalidate events cache on new event
+    
+    # Push to WebSocket subscribers
+    event_data = {
+        "id": event.id,
+        "message_id": event.message_id,
+        "event_type": event.event_type,
+        "event_description": event.event_description,
+        "event_timestamp": event.event_timestamp.isoformat(),
+        "sending_facility": event.sending_facility,
+        "patient_class": event.patient_class,
+        "patient_location": event.patient_location,
+        "patient_mrn": patient_mrn,
+    }
+    asyncio.create_task(manager.broadcast_to_mrn(patient_mrn, {
+        "type": "event_created",
+        "event": event_data
+    }))
     return {"id": event.id, "message_id": event.message_id, "patient_mrn": event.patient_mrn}
 
 

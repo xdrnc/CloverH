@@ -1,21 +1,12 @@
 import { useState, useEffect } from "react";
+import { useEventsWebSocket } from "./hooks/useEventsWebSocket";
 
 const API_BASE = "/api";
 
 function PatientSection({ patient }) {
-  const [events, setEvents] = useState([]);
-
-  const fetchEvents = () => {
-    fetch(`${API_BASE}/patients/${patient.mrn}/events`)
-      .then((res) => res.json())
-      .then((data) => setEvents(data));
-  };
-
-  useEffect(() => {
-    fetchEvents();
-    const interval = setInterval(fetchEvents, 5000);
-    return () => clearInterval(interval);
-  }, [patient.mrn]);
+  // Subscribe to this patient's events via WebSocket
+  const { eventsByMrn, connected, error } = useEventsWebSocket([patient.mrn]);
+  const events = eventsByMrn[patient.mrn] || [];
 
   const formatTimestamp = (iso) => {
     const d = new Date(iso);
@@ -25,12 +16,13 @@ function PatientSection({ patient }) {
   return (
     <div className="patient-section">
       <div className="patient-header">
-        <h2>
-          {patient.first_name} {patient.last_name}
-        </h2>
+        <h2>{patient.first_name} {patient.last_name}</h2>
         <div className="meta">
-          MRN: {patient.mrn} | DOB: {patient.date_of_birth} | Gender:{" "}
-          {patient.gender}
+          MRN: {patient.mrn} | DOB: {patient.date_of_birth} | Gender: {patient.gender}
+          <span className={`ws-status ${connected ? "connected" : "disconnected"}`}>
+            {connected ? "🟢 Live" : "🔴 Reconnecting..."}
+          </span>
+          {error && <span className="ws-error">⚠ {error}</span>}
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 """Simple in-memory cache with TTL and prefix invalidation."""
 import threading
 import time
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, Callable, List
 
 
 class SimpleCache:
@@ -10,6 +10,7 @@ class SimpleCache:
         self._ttl = ttl
         self._lock = threading.RLock()
         self._stats = {"hits": 0, "misses": 0}
+        self._invalidators: List[Callable[[str], None]] = []
     
     def get(self, key: str) -> Optional[Any]:
         with self._lock:
@@ -31,10 +32,29 @@ class SimpleCache:
             keys_to_delete = [k for k in self._cache if k.startswith(prefix)]
             for k in keys_to_delete:
                 del self._cache[k]
+            # Notify all registered invalidation callbacks
+            for callback in self._invalidators:
+                try:
+                    callback(prefix)
+                except Exception:
+                    pass  # Don't let callback errors break cache invalidation
     
     def invalidate_all(self):
         with self._lock:
             self._cache.clear()
+            for callback in self._invalidators:
+                try:
+                    callback("*")
+                except Exception:
+                    pass
+    
+    def on_invalidate(self, callback: Callable[[str], None]):
+        """Register a callback to be called when cache entries are invalidated.
+        
+        Args:
+            callback: Function(prefix: str) -> None. Called with the prefix that was invalidated.
+        """
+        self._invalidators.append(callback)
     
     def stats(self) -> Dict[str, int]:
         with self._lock:
@@ -50,5 +70,5 @@ def events_cache_key(mrn: str) -> str:
 
 
 def invalidate_events_cache():
-    """Call after any patient or event write operation."""
+    """Invalidate all events cache entries. Call after any patient or event write operation."""
     cache.invalidate_prefix("events:")
