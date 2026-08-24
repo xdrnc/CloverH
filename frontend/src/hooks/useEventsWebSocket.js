@@ -18,11 +18,13 @@ export function useEventsWebSocket(mrns = []) {
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 10;
 
+  // Stable key for mrns array to prevent reconnection loop
+  const mrnKey = mrns.join(",");
+
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
     
-    const mrnParam = mrns.join(",");
-    const url = `${WS_BASE}/ws/events?mrns=${mrnParam}`;
+    const url = `${WS_BASE}/ws/events?mrns=${mrnKey}`;
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
@@ -60,7 +62,7 @@ export function useEventsWebSocket(mrns = []) {
         console.error("[WS] Parse error:", e);
       }
     };
-  }, [mrns]);
+  }, [mrnKey]);
 
   const handleMessage = (msg) => {
     switch (msg.type) {
@@ -96,7 +98,7 @@ export function useEventsWebSocket(mrns = []) {
       clearTimeout(reconnectTimeoutRef.current);
       wsRef.current?.close();
     };
-  }, [connect]);
+  }, [connect, mrnKey]);
 
   // Cleanup on unmount
   useEffect(() => {
