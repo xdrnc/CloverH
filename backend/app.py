@@ -21,6 +21,14 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="ADT Feed Viewer")
 
+# Store main event loop for cross-thread WebSocket broadcasts
+_main_loop: asyncio.AbstractEventLoop | None = None
+
+@app.on_event("startup")
+def capture_main_loop():
+    global _main_loop
+    _main_loop = asyncio.get_running_loop()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -34,7 +42,11 @@ app.include_router(websocket_router)
 # Hook cache invalidation to WebSocket broadcast
 def on_events_cache_invalidated(prefix: str):
     if prefix == "events:" or prefix == "*":
-        asyncio.create_task(manager.broadcast_all({"type": "cache_invalidated"}))
+        if _main_loop:
+            _main_loop.call_soon_threadsafe(
+                _main_loop.create_task,
+                manager.broadcast_all({"type": "cache_invalidated"})
+            )
 
 cache.on_invalidate(on_events_cache_invalidated)
 
@@ -203,7 +215,7 @@ def create_event(
     db.refresh(event)
     invalidate_events_cache()  # Invalidate events cache on new event
     
-    # Push to WebSocket subscribers
+    # Push to WebSocket subscribers using captured main event loop
     event_data = {
         "id": event.id,
         "message_id": event.message_id,
@@ -215,10 +227,14 @@ def create_event(
         "patient_location": event.patient_location,
         "patient_mrn": patient_mrn,
     }
-    asyncio.create_task(manager.broadcast_to_mrn(patient_mrn, {
-        "type": "event_created",
-        "event": event_data
-    }))
+    if _main_loop:
+        _main_loop.call_soon_threadsafe(
+            _main_loop.create_task,
+            manager.broadcast_to_mrn(patient_mrn, {
+                "type": "event_created",
+                "event": event_data
+            })
+        )
     return {"id": event.id, "message_id": event.message_id, "patient_mrn": event.patient_mrn}
 
 
@@ -232,5 +248,5 @@ def get_cache_stats():
 @app.post("/api/cache/clear")
 def clear_cache():
     """Clear all cache entries."""
-    cache.clear()
+    cache.invalidate_all()
     return {"message": "Cache cleared"}

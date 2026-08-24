@@ -37,7 +37,7 @@ class ConnectionManager:
     async def broadcast_to_mrn(self, mrn: str, message: dict):
         """Send message to all clients subscribed to a specific MRN."""
         async with self._lock:
-            targets = list(self._subscriptions.get(mrn, set()))
+            targets = list(self.subscriptions.get(mrn, set()))
         
         dead = []
         for ws in targets:
@@ -52,7 +52,7 @@ class ConnectionManager:
     async def broadcast_all(self, message: dict):
         """Broadcast to all connected clients."""
         async with self._lock:
-            targets = list(self._client_mrns.keys())
+            targets = list(self.client_mrns.keys())
         
         dead = []
         for ws in targets:
