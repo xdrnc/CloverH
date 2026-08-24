@@ -10,6 +10,7 @@ from models import ADTEvent, Patient
 
 #alextest
 from sqlalchemy.exc import IntegrityError
+from datetime import datetime
 
 Base.metadata.create_all(bind=engine)
 
@@ -97,3 +98,45 @@ def create_patient(mrn: str, first_name: str, last_name: str,
     return {"id": patient.id, "mrn": patient.mrn, "first_name": patient.first_name, 
             "last_name": patient.last_name, "date_of_birth": patient.date_of_birth, 
             "gender": patient.gender, "created_at": patient.created_at}
+
+
+@app.post("/api/events", status_code=status.HTTP_201_CREATED)
+def create_event(
+    message_id: str,
+    patient_mrn: str,
+    event_type: str,
+    event_description: str,
+    event_timestamp: str,  # ISO format: "2025-03-01T12:00:00"
+    sending_facility: str = None,
+    patient_class: str = None,
+    patient_location: str = None,
+    db: Session = Depends(get_db)
+):
+    # Verify patient exists
+    patient = db.query(Patient).filter(Patient.mrn == patient_mrn).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail=f"Patient {patient_mrn} not found")
+    
+    # Check duplicate message_id
+    if db.query(ADTEvent).filter(ADTEvent.message_id == message_id).first():
+        raise HTTPException(status_code=409, detail=f"Event {message_id} already exists")
+    
+    event = ADTEvent(
+        message_id=message_id,
+        patient_mrn=patient_mrn,
+        event_type=event_type,
+        event_description=event_description,
+        event_timestamp=datetime.fromisoformat(event_timestamp),
+        sending_facility=sending_facility,
+        patient_class=patient_class,
+        patient_location=patient_location,
+        raw_message=f"MANUAL:{message_id}",  # Required field
+    )
+    db.add(event)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Duplicate or constraint error")
+    db.refresh(event)
+    return {"id": event.id, "message_id": event.message_id, "patient_mrn": event.patient_mrn}
