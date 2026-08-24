@@ -50,6 +50,40 @@ def list_patients(db: Session = Depends(get_db)):
         for p in patients
     ]
 
+@app.get("/api/patients2")
+def list_patients2(
+    page: int = 1,
+    pageSize: int = 3,
+    db: Session = Depends(get_db)):
+
+    query = (db.query(Patient)
+            .join(ADTEvent, Patient.mrn == ADTEvent.patient_mrn)
+            .group_by(Patient.id)) #AlexNote: need .group_by(Patient.id) because without it, a patient with 5 events would appear 5 times in your result list.
+
+    total = query.count()
+
+    patients = (query 
+                .order_by(Patient.last_name, Patient.first_name)
+                .offset((page-1) * pageSize) #AlexNote: offset = skip first few items
+                .limit(pageSize)
+                .all())
+
+    return {
+        "patients":[
+            {
+            "mrn": p.mrn,
+            "first_name": p.first_name,
+            "last_name": p.last_name,
+            "date_of_birth": p.date_of_birth,
+            "gender": p.gender,
+            }
+            for p in patients
+        ],
+        "page" : page,
+        "pageSize" : pageSize,
+        "total" : total,
+        "totalPages" : (total + pageSize - 1) // pageSize
+    }
 
 @app.get("/api/patients/{mrn}/events")
 def get_patient_events(mrn: str, db: Session = Depends(get_db)):
