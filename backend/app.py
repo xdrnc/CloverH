@@ -12,6 +12,8 @@ from models import ADTEvent, Patient
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 
+from cache import cache, events_cache_key, invalidate_events_cache
+
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="ADT Feed Viewer")
@@ -88,6 +90,14 @@ def list_patients2(
 @app.get("/api/patients/{mrn}/events")
 def get_patient_events(mrn: str, db: Session = Depends(get_db)):
     """Return all ADT events for a given patient MRN, newest first."""
+    key = events_cache_key(mrn)
+    
+    # Try cache first
+    cached = cache.get(key)
+    if cached:
+        return cached
+    
+    # Cache miss: query DB
     events = (
         db.query(ADTEvent)
         .filter(ADTEvent.patient_mrn == mrn)
@@ -95,7 +105,7 @@ def get_patient_events(mrn: str, db: Session = Depends(get_db)):
         .all()
     )
 
-    return [
+    response = [
         {
             "id": e.id,
             "message_id": e.message_id,
@@ -108,6 +118,10 @@ def get_patient_events(mrn: str, db: Session = Depends(get_db)):
         }
         for e in events
     ]
+    
+    # Store in cache
+    cache.set(key, response)
+    return response
 
 
 #alextest post new patient
@@ -129,6 +143,7 @@ def create_patient(mrn: str, first_name: str, last_name: str,
         db.rollback()
         raise HTTPException(status_code=409, detail=f"MRN '{mrn}' already exists")
     db.refresh(patient)
+    invalidate_events_cache()  # Invalidate events cache on new patient
     return {"id": patient.id, "mrn": patient.mrn, "first_name": patient.first_name, 
             "last_name": patient.last_name, "date_of_birth": patient.date_of_birth, 
             "gender": patient.gender, "created_at": patient.created_at}
@@ -173,4 +188,19 @@ def create_event(
         db.rollback()
         raise HTTPException(status_code=409, detail="Duplicate or constraint error")
     db.refresh(event)
+    invalidate_events_cache()  # Invalidate events cache on new event
     return {"id": event.id, "message_id": event.message_id, "patient_mrn": event.patient_mrn}
+
+
+# Cache management endpoints
+@app.get("/api/cache/stats")
+def get_cache_stats():
+    """Return cache statistics."""
+    return cache.stats()
+
+
+@app.post("/api/cache/clear")
+def clear_cache():
+    """Clear all cache entries."""
+    cache.clear()
+    return {"message": "Cache cleared"}
